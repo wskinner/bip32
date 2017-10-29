@@ -1,8 +1,12 @@
+import org.bouncycastle.crypto.digests.SHA512Digest;
+import org.bouncycastle.crypto.macs.HMac;
+import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -24,6 +28,72 @@ public class Bip32 {
                 new BigInteger("32670510020758816978083085130507043184471273380659243275938904335757337482424"));
     }
 
+    public ExtendedPrivateKey generateMasterKey(byte[] seed) {
+        HMac hmac = new HMac(new SHA512Digest());
+        KeyParameter key = new KeyParameter("Bitcoin seed".getBytes());
+        hmac.init(key);
+        for (byte b : seed) {
+            hmac.update(b);
+        }
+        byte[] digest = new byte[64];
+        hmac.doFinal(digest, 0);
+        byte[] l = new byte[32];
+        byte[] r = new byte[32];
+        System.arraycopy(digest, 0, l, 0, 32);
+        System.arraycopy(digest, 32, r, 0, 32);
+
+        BigInteger k = parse256(l);
+        byte[] chain = r;
+        return new ExtendedPrivateKey(k, chain, 0, null, null, ExtendedPrivateKey.mainnet_version);
+    }
+
+    public ExtendedPrivateKey privateParentToPrivateChild(ExtendedPrivateKey parent, int i) {
+        HMac hmac = new HMac(new SHA512Digest());
+        KeyParameter keyParameter = new KeyParameter(parent.c);
+        hmac.init(keyParameter);
+
+        if (i < 0) {
+            // hardened
+            hmac.update((byte) 0x00);
+            for (byte b : ser256(parent.k)) {
+                hmac.update(b);
+            }
+        } else {
+            // non-hardened
+            for (byte b : serP(point(parent.k))) {
+                hmac.update(b);
+            }
+        }
+
+        for (byte b : ser32(i)) {
+            hmac.update(b);
+        }
+
+        byte[] digest = new byte[64];
+        hmac.doFinal(digest, 0);
+
+        byte[] iL = new byte[32];
+        byte[] iR = new byte[32];
+        System.arraycopy(digest, 0, iL, 0, 32);
+        System.arraycopy(digest, 32, iR, 0, 32);
+
+        BigInteger Ki = parse256(iL).add(parent.k);
+        byte[] chaini = iR;
+
+        // In case parse256(IL) ≥ n or ki = 0, the resulting key is invalid, and one should proceed with the next value
+        // for i. (Note: this has probability lower than 1 in 2127.) TODO
+//        return new ExtendedPrivateKey(Ki, chaini, );
+        return null;
+    }
+
+    public ExtendedPublicKey publicParentToPublicChild(ExtendedPublicKey parent, int i) {
+        throw new NotImplementedException();
+    }
+
+    public ExtendedPublicKey privateParentToPublicChild(ExtendedPrivateKey parent, int i) {
+        throw new NotImplementedException();
+    }
+
     /**
      * point(p): returns the coordinate pair resulting from EC point multiplication (repeated application of the EC
      * group operation) of the secp256k1 base point with the integer p.
@@ -42,7 +112,7 @@ public class Bip32 {
         return ByteBuffer.allocate(4).putInt(i).array();
     }
 
-    byte[] ser256(BigInteger p) {
+    static byte[] ser256(BigInteger p) {
         if (p.compareTo(BigInteger.ZERO) < 0) {
             BigInteger TWO_COMPL_REF = BigInteger.ONE.shiftLeft(256);
             p = p.add(TWO_COMPL_REF);
@@ -94,7 +164,7 @@ public class Bip32 {
     /**
      * parse256(p): interprets a 32-byte sequence as a 256-bit number, most significant byte first
      */
-    BigInteger parse256(byte[] p) {
+    static BigInteger parse256(byte[] p) {
         return new BigInteger(1, p);
     }
 
