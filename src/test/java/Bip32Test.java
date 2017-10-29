@@ -71,9 +71,9 @@ public class Bip32Test {
     }
 
     @Test
-    public void testParse() {
+    public void testParsePrivateMasterKey() {
         String base58PrivateKey = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
-        ExtendedPrivateKey extendedPrivateKey = ExtendedPrivateKey.parse(base58PrivateKey);
+        ExtendedPrivateKey extendedPrivateKey = ExtendedKey.parsePrivateKey(base58PrivateKey);
 
         assertEquals(base58PrivateKey, extendedPrivateKey.toString());
     }
@@ -88,7 +88,7 @@ public class Bip32Test {
             fail();
         }
         String base58Encoded = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
-        ExtendedPrivateKey expectedPrivateKey = ExtendedPrivateKey.parse(base58Encoded);
+        ExtendedPrivateKey expectedPrivateKey = ExtendedKey.parsePrivateKey(base58Encoded);
         byte[] expectedBytes = base58Encoded.getBytes();
 
         ExtendedPrivateKey actualPrivateKey = bip32.generateMasterKey(seed);

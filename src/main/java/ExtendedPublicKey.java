@@ -1,11 +1,10 @@
-import java.math.BigInteger;
+import org.bouncycastle.math.ec.ECPoint;
 
-public class ExtendedPublicKey {
-    final BigInteger K;
-    final byte[] c;
+public class ExtendedPublicKey extends ExtendedKey {
+    public static int testnet_version = 0x043587CF;
+    public static int mainnet_version = 0x0488B21E;
 
-    public ExtendedPublicKey(BigInteger k, byte[] c) {
-        K = k;
-        this.c = c;
+    protected ExtendedPublicKey(Builder builder) {
+        super(builder);
     }
 }

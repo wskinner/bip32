@@ -1,55 +1,32 @@
 import org.bitcoinj.core.Base58;
 import org.bitcoinj.core.Sha256Hash;
+import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.Arrays;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-import java.math.BigInteger;
-
-public class ExtendedPrivateKey {
-    public static int mainnet_version = 0x0488ADE4;
+public class ExtendedPrivateKey extends ExtendedKey {
     public static int testnet_version = 0x04358394;
+    public static int mainnet_version = 0x0488ADE4;
 
-    final BigInteger k;
-    final byte[] c;
-    private final int depth;
-    private final ExtendedPrivateKey parent;
-    private final byte[] childNumber;
-    private final int version;
 
-    public ExtendedPrivateKey(BigInteger k,
-                              byte[] c,
-                              int depth,
-                              ExtendedPrivateKey parent,
-                              byte[] childNumber,
-                              int version) {
-        this.k = k;
-        this.c = c;
-        this.depth = depth;
-        this.parent = parent;
-        this.childNumber = childNumber;
-        this.version = version;
+    public ExtendedPrivateKey(ExtendedKey.Builder builder) {
+        super(builder);
     }
 
-    public static ExtendedPrivateKey parse(String base58Encoded) {
-        byte[] bytes = Base58.decode(base58Encoded);
+    public ExtendedPublicKey generatePublicKey() {
+        ECPoint publicPoint = Bip32.point(key);
+        byte[] serialized = Bip32.serP(publicPoint);
+        boolean yParity = serialized[0] == 0x03;
 
-        // version
-        int version = 0;
-        version |= ((bytes[0] & 0xff) << 24);
-        version |= ((bytes[1] & 0xff) << 16);
-        version |= ((bytes[2] & 0xff) << 8);
-        version |= (bytes[3] & 0xff);
-
-        // depth
-        int depth = bytes[4];
-
-        byte[] fingerprint = Arrays.copyOfRange(bytes, 5, 9);
-        byte[] childNumber = Arrays.copyOfRange(bytes, 9, 13);
-        byte[] chainCode = Arrays.copyOfRange(bytes, 13, 45);
-        byte[] privateKey = Arrays.copyOfRange(bytes, 45, 78);
-        BigInteger k = Bip32.parse256(Arrays.copyOfRange(privateKey, 1, 33));
-
-        return new ExtendedPrivateKey(k, chainCode, depth, null, childNumber, version);
+        return new Builder()
+                .setKey(publicPoint.getRawXCoord().toBigInteger())
+                .setYParity(yParity)
+                .setChainCode(chainCode)
+                .setDepth(depth)
+                .setChildNumber(childNumber)
+                .setVersion(version == mainnet_version ? ExtendedPublicKey.mainnet_version : ExtendedPublicKey.testnet_version)
+                .setFingerprint(fingerprint)
+                .buildPublicKey();
     }
 
     public String toString() {
@@ -66,7 +43,7 @@ public class ExtendedPrivateKey {
 
         // parent fingerprint
         if (parent != null) {
-            byte[] fingerprint = parent.getFingerprint();
+            byte[] fingerprint = parent.fingerprint;
             ser[5] = fingerprint[0];
             ser[6] = fingerprint[1];
             ser[7] = fingerprint[2];
@@ -82,8 +59,8 @@ public class ExtendedPrivateKey {
         }
 
         // chain code
-        System.arraycopy(c, 0, ser, 13, 32);
-        System.arraycopy(Bip32.ser256(k), 0, ser, 46, 32);
+        System.arraycopy(chainCode, 0, ser, 13, 32);
+        System.arraycopy(Bip32.ser256(key), 0, ser, 46, 32);
 
         byte[] checksum = Arrays.copyOfRange(
                 Sha256Hash.hashTwice(Arrays.copyOfRange(ser, 0, 78)), 0, 4);
@@ -94,4 +71,5 @@ public class ExtendedPrivateKey {
     private byte[] getFingerprint() {
         throw new NotImplementedException();
     }
+
 }
