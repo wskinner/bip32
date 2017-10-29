@@ -1,10 +1,9 @@
+import org.bouncycastle.asn1.sec.SECNamedCurves;
+import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.crypto.params.KeyParameter;
-import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.jce.spec.ECParameterSpec;
-import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
@@ -13,21 +12,17 @@ import java.nio.ByteBuffer;
 import java.security.Security;
 
 public class Bip32 {
-    private static final ECCurve curve;
-    private static final ECPoint basePoint;
+    static final X9ECParameters curve = SECNamedCurves.getByName("secp256k1");
 
     static {
-        ECParameterSpec ecSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
-        curve = ecSpec.getCurve();
-
-        basePoint = curve.createPoint(
-                new BigInteger("55066263022277343669578718895168534326250603453777594175500187360389116729240"),
-                new BigInteger("32670510020758816978083085130507043184471273380659243275938904335757337482424"));
-
         Security.addProvider(new BouncyCastleProvider());
     }
 
-    static ExtendedPrivateKey generateMasterKey(byte[] seed) {
+    static ExtendedKeyPair generateMasterKey(byte[] seed) {
+        return generateMasterKey(seed, true);
+    }
+
+    static ExtendedKeyPair generateMasterKey(byte[] seed, boolean isMainnet) {
         HMac hmac = new HMac(new SHA512Digest());
         KeyParameter key = new KeyParameter("Bitcoin seed".getBytes());
         hmac.init(key);
@@ -42,59 +37,60 @@ public class Bip32 {
         System.arraycopy(digest, 32, r, 0, 32);
 
         BigInteger k = parse256(l);
-        return new ExtendedPrivateKey.Builder()
-                .setKey(k)
+        return new ExtendedKeyPair.Builder()
+                .setPrivKey(k)
                 .setChainCode(r)
-                .setVersion(ExtendedPrivateKey.mainnet_version)
-                .buildPrivateKey();
+                .setIsMainnet(isMainnet)
+                .build();
     }
 
-    public ExtendedPrivateKey privateParentToPrivateChild(ExtendedPrivateKey parent, int i) {
-        HMac hmac = new HMac(new SHA512Digest());
-        KeyParameter keyParameter = new KeyParameter(parent.chainCode);
-        hmac.init(keyParameter);
 
-        if (i < 0) {
-            // hardened
-            hmac.update((byte) 0x00);
-            for (byte b : ser256(parent.key)) {
-                hmac.update(b);
-            }
-        } else {
-            // non-hardened
-            for (byte b : serP(point(parent.key))) {
-                hmac.update(b);
-            }
-        }
-
-        for (byte b : ser32(i)) {
-            hmac.update(b);
-        }
-
-        byte[] digest = new byte[64];
-        hmac.doFinal(digest, 0);
-
-        byte[] iL = new byte[32];
-        byte[] iR = new byte[32];
-        System.arraycopy(digest, 0, iL, 0, 32);
-        System.arraycopy(digest, 32, iR, 0, 32);
-
-        BigInteger Ki = parse256(iL).add(parent.key);
-        byte[] chaini = iR;
-
-        // In case parse256(IL) ≥ n or ki = 0, the resulting key is invalid, and one should proceed with the next value
-        // for i. (Note: this has probability lower than 1 in 2127.) TODO
-//        return new ExtendedPrivateKey(Ki, chaini, );
-        return null;
-    }
-
-    public ExtendedPublicKey publicParentToPublicChild(ExtendedPublicKey parent, int i) {
-        throw new NotImplementedException();
-    }
-
-    public ExtendedPublicKey privateParentToPublicChild(ExtendedPrivateKey parent, int i) {
-        throw new NotImplementedException();
-    }
+//    public ExtendedKeyPair privateParentToPrivateChild(ExtendedPrivateKey parent, int i) {
+//        HMac hmac = new HMac(new SHA512Digest());
+//        KeyParameter keyParameter = new KeyParameter(parent.chainCode);
+//        hmac.init(keyParameter);
+//
+//        if (i < 0) {
+//            // hardened
+//            hmac.update((byte) 0x00);
+//            for (byte b : ser256(parent.privKey)) {
+//                hmac.update(b);
+//            }
+//        } else {
+//            // non-hardened
+//            for (byte b : serP(point(parent.privKey))) {
+//                hmac.update(b);
+//            }
+//        }
+//
+//        for (byte b : ser32(i)) {
+//            hmac.update(b);
+//        }
+//
+//        byte[] digest = new byte[64];
+//        hmac.doFinal(digest, 0);
+//
+//        byte[] iL = new byte[32];
+//        byte[] iR = new byte[32];
+//        System.arraycopy(digest, 0, iL, 0, 32);
+//        System.arraycopy(digest, 32, iR, 0, 32);
+//
+//        BigInteger Ki = parse256(iL).add(parent.privKey);
+//        byte[] chaini = iR;
+//
+//        // In case parse256(IL) ≥ n or ki = 0, the resulting privKey is invalid, and one should proceed with the next value
+//        // for i. (Note: this has probability lower than 1 in 2127.) TODO
+////        return new ExtendedPrivateKey(Ki, chaini, );
+//        return null;
+//    }
+//
+//    public ExtendedPublicKey publicParentToPublicChild(ExtendedPublicKey parent, int i) {
+//        throw new NotImplementedException();
+//    }
+//
+//    public ExtendedPublicKey privateParentToPublicChild(ExtendedPrivateKey parent, int i) {
+//        throw new NotImplementedException();
+//    }
 
     /**
      * point(p): returns the coordinate pair resulting from EC point multiplication (repeated application of the EC
@@ -104,7 +100,7 @@ public class Bip32 {
      * 32670510020758816978083085130507043184471273380659243275938904335757337482424)
      */
     static ECPoint point(BigInteger p) {
-        return basePoint.multiply(p);
+        return curve.getG().multiply(p);
     }
 
     /**
@@ -114,6 +110,12 @@ public class Bip32 {
         return ByteBuffer.allocate(4).putInt(i).array();
     }
 
+    /**
+     * TODO there must be a better way
+     *
+     * @param p
+     * @return
+     */
     static byte[] ser256(BigInteger p) {
         if (p.compareTo(BigInteger.ZERO) < 0) {
             BigInteger TWO_COMPL_REF = BigInteger.ONE.shiftLeft(256);
@@ -123,18 +125,17 @@ public class Bip32 {
         byte[] twos = p.toByteArray();
         // BigInteger's toByteArray() gives us a big endian twos complement representation, so the leftmost byte is the
         // sign.
-        if (twos.length != 33) {
+        int paddingNeeded = 33 - twos.length;
+        if (paddingNeeded > 0) {
             byte[] newTwos = new byte[33];
-            for (int i = 0; i < twos.length; i++) {
-                newTwos[32 - twos.length + i] = twos[i];
-            }
+            System.arraycopy(twos, 0, newTwos, paddingNeeded, 33 - paddingNeeded);
             twos = newTwos;
         }
 
         byte[] unsigned = new byte[32];
-        for (int i = 1; i < 33; i++) {
-            unsigned[i - 1] = twos[i];
-        }
+        System.arraycopy(twos, 1, unsigned, 0, 32);
+
+//        System.out.println("ser256: " + Hex.toHexString(unsigned));
 
         return unsigned;
     }
@@ -146,21 +147,7 @@ public class Bip32 {
      * The algorithm is specified at: http://www.secg.org/SEC1-Ver-1.0.pdf
      */
     static byte[] serP(ECPoint P) {
-        int bitlen = P.getRawXCoord().bitLength();
-        int bytelen = Math.max(bitlen / 8, (bitlen + (bitlen - (bitlen % 8))) / 8);
-        byte[] result = new byte[bytelen + 1];
-
-        boolean yp = P.getRawYCoord().testBitZero();
-        if (yp) {
-            result[0] = 0x03;
-        } else {
-            result[0] = 0x02;
-        }
-
-        byte[] serX = ser256(P.getRawXCoord().toBigInteger());
-        System.arraycopy(serX, 0, result, 1, serX.length);
-
-        return result;
+        return P.getEncoded();
     }
 
     /**

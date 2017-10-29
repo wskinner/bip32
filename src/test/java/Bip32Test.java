@@ -1,6 +1,5 @@
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
-import org.bitcoinj.core.Base58;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -73,14 +72,23 @@ public class Bip32Test {
     @Test
     public void testParsePrivateMasterKey() {
         String base58PrivateKey = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
-        ExtendedPrivateKey extendedPrivateKey = ExtendedKey.parsePrivateKey(base58PrivateKey);
+        ExtendedKeyPair extendedPrivateKey = ExtendedKeyPair.parseBase58Check(base58PrivateKey);
 
-        assertEquals(base58PrivateKey, extendedPrivateKey.toString());
+        assertEquals(base58PrivateKey, extendedPrivateKey.serializePriv());
+    }
+
+    @Test
+    public void testParsePublicMasterKey() {
+        String base58PublicKey = "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
+        ExtendedKeyPair extendedPublicKey = ExtendedKeyPair.parseBase58Check(base58PublicKey);
+
+        assertEquals(base58PublicKey, extendedPublicKey.serializePub());
     }
 
     @Test
     public void testMasterKeyGeneration() {
-        byte[] seed = new byte[0];
+        // Using Test vector 1
+        byte[] seed = null;
         try {
             seed = Hex.decodeHex("000102030405060708090a0b0c0d0e0f");
         } catch (DecoderException e) {
@@ -88,11 +96,12 @@ public class Bip32Test {
             fail();
         }
         String base58Encoded = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
-        ExtendedPrivateKey expectedPrivateKey = ExtendedKey.parsePrivateKey(base58Encoded);
-        byte[] expectedBytes = base58Encoded.getBytes();
 
-        ExtendedPrivateKey actualPrivateKey = bip32.generateMasterKey(seed);
-        byte[] actualBytes = actualPrivateKey.toString().getBytes();
-        assertArrayEquals(expectedBytes, actualBytes);
+        ExtendedKeyPair expectedPrivKey = ExtendedKeyPair.parseBase58Check(base58Encoded);
+        ExtendedKeyPair actualPrivKey = Bip32.generateMasterKey(seed);
+        assertEquals(expectedPrivKey.serializePriv(), actualPrivKey.serializePriv());
+
+        ExtendedKeyPair expectedPubKey = ExtendedKeyPair.parseBase58Check("xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8");
+        assertEquals(expectedPubKey.serializePub(), actualPrivKey.serializePub());
     }
 }
