@@ -1,6 +1,9 @@
 import org.bouncycastle.asn1.sec.SECNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 import org.bouncycastle.crypto.digests.SHA512Digest;
+import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -9,6 +12,8 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 
 public class Bip32 {
@@ -44,6 +49,21 @@ public class Bip32 {
                 .build();
     }
 
+    public static byte[] hash160(ECPoint pubKey) {
+        SHA256Digest sha256 = new SHA256Digest();
+        RIPEMD160Digest ripemd160 = new RIPEMD160Digest();
+
+        byte[] pubBytes = pubKey.getEncoded(true);
+        sha256.update(pubBytes, 0, pubBytes.length);
+        byte[] sha256Out = new byte[32];
+        sha256.doFinal(sha256Out, 0);
+        ripemd160.update(sha256Out, 0, 32);
+
+        byte[] ripemdOut = new byte[20];
+        ripemd160.doFinal(ripemdOut, 0);
+
+        return ripemdOut;
+    }
 
 //    public ExtendedKeyPair privateParentToPrivateChild(ExtendedPrivateKey parent, int i) {
 //        HMac hmac = new HMac(new SHA512Digest());
@@ -147,7 +167,7 @@ public class Bip32 {
      * The algorithm is specified at: http://www.secg.org/SEC1-Ver-1.0.pdf
      */
     static byte[] serP(ECPoint P) {
-        return P.getEncoded();
+        return P.getEncoded(true);
     }
 
     /**
