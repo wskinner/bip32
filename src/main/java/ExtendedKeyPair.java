@@ -16,17 +16,17 @@ public class ExtendedKeyPair {
     public static int public_mainnet_version = 0x0488B21E;
 
     // to be set only for private keys
-    final BigInteger privKey;
+    private final BigInteger privKey;
 
     // To be set only for public keys
-    final ECPoint pubKey;
+    private final ECPoint pubKey;
 
-    final byte[] chainCode;
-    final byte depth;
-    final ExtendedKeyPair parent;
-    final byte[] childNumber;
-    final byte[] parentFingerprint;
-    final boolean isMainnet;
+    private final byte[] chainCode;
+    private final byte depth;
+    private final ExtendedKeyPair parent;
+    private final byte[] childNumber;
+    private final byte[] parentFingerprint;
+    private final boolean isMainnet;
 
     /**
      * Each account is composed of two keypair chains: an internal and an external one. The external keychain is used
@@ -139,8 +139,6 @@ public class ExtendedKeyPair {
     /**
      * The function CKDpub((Kpar, cpar), i) -> (Ki, ci) computes a child extended public key from the parent extended
      * public key. It is only defined for non-hardened child keys.
-     *
-     * @return
      */
     public ExtendedKeyPair ckdPub(int i) {
         if (i < 0) {
@@ -418,5 +416,37 @@ public class ExtendedKeyPair {
 
             return new ExtendedKeyPair(this);
         }
+    }
+
+    public BigInteger getPrivKey() {
+        return privKey;
+    }
+
+    public ECPoint getPubKey() {
+        return pubKey;
+    }
+
+    public byte[] getChainCode() {
+        return chainCode;
+    }
+
+    public byte getDepth() {
+        return depth;
+    }
+
+    public ExtendedKeyPair getParent() {
+        return parent;
+    }
+
+    public byte[] getChildNumber() {
+        return childNumber;
+    }
+
+    public byte[] getParentFingerprint() {
+        return parentFingerprint;
+    }
+
+    public boolean isMainnet() {
+        return isMainnet;
     }
 }
