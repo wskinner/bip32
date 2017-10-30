@@ -3,6 +3,12 @@ Compliant implementation of the [BIP-32](https://github.com/bitcoin/bips/blob/ma
 specification for Hierarchical Deterministic Wallets.
 
 ## Usage
+Using maven:
+```bash
+mvn package
+```
+
+## Examples
 Importing a Base58Check serialized wallet:
 ```java
 String base58PrivateKey = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";

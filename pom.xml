@@ -6,7 +6,7 @@
 
     <groupId>com.wskinner</groupId>
     <artifactId>bip32</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on -->
