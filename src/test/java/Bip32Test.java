@@ -83,5 +83,11 @@ public class Bip32Test {
         assertEquals(base58PublicKey, extendedPublicKey.serializePub());
     }
 
-
+    @Test
+    public void testParseIndex() {
+        ExtendedKeyPair e = Bip32.generateMasterKey(new byte[]{});
+        assertEquals(0, e.parseIndex("0"));
+        assertEquals(0 + (1 << 31), e.parseIndex("0h"));
+        assertEquals(2147483647 + (1 << 31), e.parseIndex("2147483647h"));
+    }
 }

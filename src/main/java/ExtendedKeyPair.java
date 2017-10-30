@@ -1,3 +1,4 @@
+import com.google.common.annotations.VisibleForTesting;
 import org.bitcoinj.core.Base58;
 import org.bitcoinj.core.Sha256Hash;
 import org.bouncycastle.crypto.digests.SHA512Digest;
@@ -46,74 +47,42 @@ public class ExtendedKeyPair {
         }
 
         String[] parts = keyString.split("/");
+        assert parts[0].equals("m");
 
-        int accountNumber = Integer.parseInt(parts[1]);
-        ExtendedKeyPair account = generateAccount(accountNumber);
-
-        if (parts.length == 2) return account;
-
-        boolean isExternal = Integer.parseInt(parts[2]) == 0;
-        ExtendedKeyPair chain = isExternal ? account.generateExternalChain() : account.generateInternalChain();
-
-        if (parts.length == 3) return chain;
-
-        int keypairNumber = Integer.parseInt(parts[3]);
-        return chain.generateAccount(keypairNumber);
-    }
-
-    public ExtendedKeyPair generatePublicAddress(int i) {
-        if (depth != 2) {
-            throw new UnsupportedOperationException("Only chain level key pairs can generate addresses");
+        if (parts.length == 1) {
+            return this;
         }
 
-        return ckdPub(i);
+        return generateSubtree(Arrays.copyOfRange(parts, 1, parts.length));
     }
 
-    public ExtendedKeyPair generatePrivateAddress(int i) {
-        if (depth != 2) {
-            throw new UnsupportedOperationException("Only chain level key pairs can generate addresses");
+    private ExtendedKeyPair generateSubtree(String[] pathParts) {
+        if (pathParts.length == 0) {
+            return this;
         }
 
-        return ckdPriv(i);
-    }
-
-    public ExtendedKeyPair generateAccount(int i) {
-        if (depth != 0) {
-            throw new UnsupportedOperationException("Only the master key pair can generate accounts");
-        }
-
-        return ckdPub(i);
-//        return ckdPriv(i);
+        int index = parseIndex(pathParts[0]);
+        ExtendedKeyPair nextSubtree = ckdPriv(index);
+        return nextSubtree.generateSubtree(Arrays.copyOfRange(pathParts, 1, pathParts.length));
     }
 
     /**
-     * The convention recommended in BIP-32 is for each account, create 2 chains:
-     * chain 0 is the "external" chain
-     * chain 1 is the "internal" chain
-     *
-     * @return
+     * The non hardened indexes include 0 through 2^31 - 1 inclusive.
+     * The hardened indexes include 2^31 through 2^32 - 1 inclusive.
+     * So 0h translates to 2^31, 1h translates to 2^31 + 1, and so on.
+     * This code will trigger NumberFormatException if the value is out of range for an Integer.
      */
-    public ExtendedKeyPair generateExternalChain() {
-        if (depth != 1) {
-            throw new UnsupportedOperationException("Only wallet level key pairs can generate chains");
+    @VisibleForTesting
+    public int parseIndex(String indexString) {
+        int value;
+        if (indexString.toLowerCase().contains("h")) {
+            value = Integer.parseInt(indexString.substring(0, indexString.length() - 1));
+            value |= 0x80000000;
+        } else {
+            value = Integer.parseInt(indexString);
         }
 
-        return ckdPriv(0);
-    }
-
-    /**
-     * The convention recommended in BIP-32 is for each account, create 2 chains:
-     * chain 0 is the "external" chain
-     * chain 1 is the "internal" chain
-     *
-     * @return
-     */
-    public ExtendedKeyPair generateInternalChain() {
-        if (depth != 1) {
-            throw new UnsupportedOperationException("Only wallet level key pairs can generate chains");
-        }
-
-        return ckdPriv(1);
+        return value;
     }
 
     /**
@@ -215,6 +184,24 @@ public class ExtendedKeyPair {
                 .build();
     }
 
+    /**
+     * The function N((k, c)) -> (K, c) computes the extended public key corresponding to an extended private key
+     * (the "neutered" version, as it removes the ability to sign transactions).
+     *
+     * @return
+     */
+    public ExtendedKeyPair neuter() {
+        return new Builder()
+                .setPubKey(Bip32.point(privKey))
+                .setChildNumber(childNumber)
+                .setDepth(depth)
+                .setIsMainnet(isMainnet)
+                .setChainCode(chainCode)
+                .setParent(parent)
+                .setParentFingerprint(parentFingerprint)
+                .build();
+    }
+
     public static ExtendedKeyPair parseBase58Check(String base58Encoded) {
         byte[] bytes = Base58.decode(base58Encoded);
 
@@ -245,7 +232,7 @@ public class ExtendedKeyPair {
                 .setDepth(depth)
                 .setChildNumber(childNumber)
                 .setIsMainnet(version == public_mainnet_version || version == private_mainnet_version)
-                .setFingerprint(fingerprint);
+                .setParentFingerprint(fingerprint);
         if (pubKey != null) {
             return builder.setPubKey(pubKey).build();
         } else {
@@ -308,7 +295,7 @@ public class ExtendedKeyPair {
 
         // parent parentFingerprint
         if (parent != null) {
-            byte[] fingerprint = parent.parentFingerprint;
+            byte[] fingerprint = parentFingerprint;
             ser[5] = fingerprint[0];
             ser[6] = fingerprint[1];
             ser[7] = fingerprint[2];
@@ -404,7 +391,7 @@ public class ExtendedKeyPair {
             return this;
         }
 
-        public Builder setFingerprint(byte[] fingerprint) {
+        public Builder setParentFingerprint(byte[] fingerprint) {
             this.fingerprint = fingerprint;
             return this;
         }
