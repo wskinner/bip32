@@ -1,4 +1,4 @@
-import org.apache.commons.codec.binary.Hex;
+import org.bouncycastle.util.encoders.Hex;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -38,19 +38,19 @@ public class Bip32Test {
         String hexString = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
         BigInteger bignum = new BigInteger(hexString, 16);
         byte[] unsignedRep = Bip32.ser256(bignum);
-        assertEquals(hexString, Hex.encodeHexString(unsignedRep));
+        assertEquals(hexString, Hex.toHexString(unsignedRep));
 
         // extending to 32 bytes
         hexString = "0000000000000000000000000000000000000000000000000000000000000000";
         bignum = new BigInteger("00", 16);
         unsignedRep = Bip32.ser256(bignum);
-        assertEquals(hexString, Hex.encodeHexString(unsignedRep));
+        assertEquals(hexString, Hex.toHexString(unsignedRep));
 
         // negative number
         hexString = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
         bignum = new BigInteger("-1");
         unsignedRep = Bip32.ser256(bignum);
-        assertEquals(hexString, Hex.encodeHexString(unsignedRep));
+        assertEquals(hexString, Hex.toHexString(unsignedRep));
     }
 
     @Test
